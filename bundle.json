@@ -3,6 +3,18 @@
     {
       "type": "github",
       "repo": "ponylang/http"
+    },
+    {
+      "type": "github",
+      "repo": "oraoto/pony-websocket"
+    },
+    {
+      "type": "github",
+      "repo": "ponylang/http"
+    },
+    {
+      "type": "github",
+      "repo": "ponylang/http"
     }
   ]
 }
