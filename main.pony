@@ -1,16 +1,16 @@
 use "files"
+use "websocket"
+use "http"
+use "encode/base64"
+
+
+
 
 actor Main
-  new create(env: Env) =>
-    env.out.print("Test")
-    let qq = QQ.create(719214425)
-    env.out.print(qq.qq().string())
-    env.out.print(qq.qq().string())
-    let msg = PrivateChatMessage.create(qq,qq,"114514")
-    env.out.print(msg.body())
-    env.out.print(msg.sender().qq().string())
-    CoolQParser.parse_sex("male")
 
+  
+  new create(env: Env) =>
+  """
     try
       let path = FilePath(env.root as AmbientAuth, "test.json")?
       match OpenFile(path)
@@ -28,4 +28,14 @@ actor Main
         env.err.print("error open " + "test.json")
       end
     end
-  
+  """  
+    try
+      let listener = WebSocketListener(
+        env.root as AmbientAuth,recover ListenNotify(env) end, "0.0.0.0", "8888")
+    end
+
+    
+    //let transfer = MessageTransfer("http://127.0.0.1:5700/", env)
+    //transfer.send(msg)
+
+    

@@ -13,8 +13,9 @@ type MessageType is (GenericChatMessageType | PrivateChatMessageType | GroupChat
 trait Message
   fun body(): String
   fun ref sender(): QQ
-  fun ref receiver(): (QQ | None)
+  fun ref receiver(): QQ
   fun msg_type(): MessageType
+  fun ref set_body(body': String)
 
 
 class PrivateChatMessage is Message
@@ -35,6 +36,8 @@ class PrivateChatMessage is Message
 
   fun msg_type(): MessageType => PrivateChatMessageType
 
+  fun ref set_body(body': String) => _body = body'
+
 // 
 class GroupChatMessage is Message
   let _sender: QQ
@@ -53,6 +56,8 @@ class GroupChatMessage is Message
   fun ref receiver(): QQ => _receiver
 
   fun msg_type(): MessageType => PrivateChatMessageType
+
+  fun ref set_body(body': String) => _body = body'
 
 
 primitive CoolQParser
@@ -77,7 +82,7 @@ primitive CoolQParser
       let id: U64 = U64.from[I64](json.data("user_id")? as I64)
       let qq = QQ(id, nick, sex)
       let body: String = json.data("message")? as String
-      
+      @printf[I32]((post' + "\n").cstring())
       match msg_type
         | "private" => PrivateChatMessage(qq, qq, body)
         | "group" =>
@@ -86,6 +91,9 @@ primitive CoolQParser
       else
         PrivateChatMessage.create(qq, qq, body)
       end
+    else
+      @printf[I32]("Error Parse post".cstring())
+      error
     end
 
   fun gen_msg_json(raw: Message): JsonObject =>
@@ -93,6 +101,7 @@ primitive CoolQParser
     match raw
       | let msg: PrivateChatMessage =>
       json.data("message_type") = "private"
+      json.data("user_id") = I64.from[U64](msg.receiver().qq())
       | let msg: GroupChatMessage =>
       json.data("message_type") = "group"
       json.data("group_id") = I64.from[U64](msg.receiver().qq())

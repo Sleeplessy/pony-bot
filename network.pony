@@ -4,28 +4,44 @@ use "encode/base64"
 use "websocket"
 
 class ListenNotify is WebSocketListenNotify
+  let _env: Env
+  new create(env': Env) =>
+    _env = env'
   // A tcp connection connected, return a WebsocketConnectionNotify instance
-  fun ref connected(): ConnectionNotify iso^ =>
-    ConnectionNotify
+  fun ref connected(): ConnectionNotify iso^=>
+    recover ConnectionNotify(_env) end
 
   fun ref not_listening() =>
-    @printf[I32]("Failed listening\n".cstring())
+    _env.out.print("Failed listening\n")
 
 class ConnectionNotify is WebSocketConnectionNotify
+  let _env: Env
+  new create(env': Env) =>
+    _env = env'
   // A websocket connection enters the OPEN state
   fun ref opened(conn: WebSocketConnection ref) =>
-    @printf[I32]("New client connected\n".cstring())
+    _env.out.print("CoolQ-HTTP client connected\n")
 
   // UTF-8 text data received
   fun ref text_received(conn: WebSocketConnection ref, text: String) =>
-    let output = recover String(text.size() + 1) end // add a new line
+    let output = recover String(text.size()) end
     output.append(text)
-    output.append("\n")
-    @printf[I32](output.cstring())
+    try
+      match CoolQParser.parse_post(consume output)?
+        | let msg: Message =>
+        match Diliver.deal_msg(msg)
+          | let msg': Message =>
+          let transfer = MessageTransfer("http://127.0.0.1:5700/", _env)
+          transfer.send(msg')
+        end
+        | None => _env.out.print("Empty with parsed message\n")
+      end
+    end
+    
 
   // Binary data received
   fun ref binary_received(conn: WebSocketConnection ref, data: Array[U8] val) =>
-    conn.send_binary(data)
+    text_received(conn, String.from_array(data))
 
   // A websocket connection enters the CLOSED state
   fun ref closed(conn: WebSocketConnection ref) =>
@@ -109,23 +125,27 @@ actor GetWork
       "Response " +
       response.status.string() + " " +
       response.method)
-    _env.out.print("")
 
     // Print the body if there is any.  This will fail in Chunked or
     // Stream transfer modes.
     try
       let body = response.body()?
+      var body_str = recover String.create() end
       for piece in body.values() do
         _env.out.write(piece)
       end
       _env.out.print("")
+    else
+      _env.out.print("Error dealing response")
     end
+    
 
   be have_body(data: ByteSeq val)
     =>
     """
     Some additional response data.
     """
+    _env.out.write("GetWork have_body:")
     _env.out.write(data)
     _env.out.print("")
 
