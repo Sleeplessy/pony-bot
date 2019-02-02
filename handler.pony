@@ -2,23 +2,42 @@ use "random"
 use "time"
 use "regex"
 
+trait QQMessageCounter
+  fun count(): U64
+  fun ref add_count(times: U64 = 1)
+  fun ref reset_count(): U64
+
+class SilenceCounter is QQMessageCounter
+  var _count: U64
+
+  new create() =>
+    _count = 0
+    
+  fun count(): U64 => _count
+
+  fun ref reset_count(): U64 => _count = 0
+
+  fun ref add_count(times: U64 = 1) => _count = _count + times 
 
 trait QQMessageHandler
-  fun deal_msg(msg: Message): (Message|None)
+  fun deal_msg(msg: Message, counter: (QQMessageCounter|None) = None): (Message|None)
 
 
 // trans messages into specific handler
 primitive Diliver
-  fun deal_msg(msg: Message): (Message|None) =>
+  fun deal_msg(msg: Message, counter: (QQMessageCounter|None) = None): (Message|None) =>
     let body = msg.body()
     if is_command(body) then
       msg.set_body(get_param(body))
-      try match get_command(body)?
+      try
+        match get_command(body)?
         | "r" =>
         DiceHandler.deal_msg(msg)
-          end
         end
       end
+    else
+      MessageHandler.deal_msg(msg,counter)
+    end
     
 
   fun is_command(body: String): Bool =>
@@ -46,7 +65,31 @@ primitive Diliver
       ""
     end
     
-
+// Normal Message
+    
+primitive MessageHandler is QQMessageHandler
+  fun deal_msg(msg': Message, counter: (QQMessageCounter|None) = None): (Message|None) =>
+  
+    if (msg'.body() == "...") or (msg'.body() == "…") then
+      match counter
+        | let counter': QQMessageCounter =>
+        counter'.add_count()
+        if(counter'.count() > 2) then
+          msg'.set_body("……怎么了吗？")
+          counter'.reset_count()
+        end
+      end
+      match msg'
+        |let msg: GroupChatMessage =>
+        GroupChatMessage(msg'.receiver(), msg'.receiver(), msg'.body())
+        |let msg: PrivateChatMessage =>
+        PrivateChatMessage(msg'.receiver(), msg'.receiver(), msg'.body())
+      end
+    else
+      None
+    end
+    
+    
 // Dice Roller
 primitive DiceHandler is QQMessageHandler
   fun roll(count: U64, sides: U64): U64 =>
@@ -55,7 +98,7 @@ primitive DiceHandler is QQMessageHandler
     dice.apply(count, sides)
     
     
-  fun deal_msg(msg': Message): (Message|None) =>
+  fun deal_msg(msg': Message, counter: (QQMessageCounter|None) = None): (Message|None) =>
     try
       (var count, var sides) = dice_parser(msg'.body())?
       let dice = roll(count, sides)
@@ -80,7 +123,7 @@ primitive DiceHandler is QQMessageHandler
   // I hate regex
   fun dice_parser(dice: String): (U64, U64) ? =>
     let err = "Start parsing:" + dice + "\n"
-    @printf[I32](err.cstring())
+    QQLogger.print(err)
     try
       let count_reg = Regex("(\\d*)D")? // matches things before "D"
       let count_matched  = count_reg(dice)?.groups()(0)?
@@ -93,7 +136,7 @@ primitive DiceHandler is QQMessageHandler
       (count, sides)
     else
       var error_info = "Error at dice parsing:" + dice + "\n"
-      @printf[I32](error_info.cstring())
+      QQLogger.print(error_info)
       error
     end
 

@@ -1,5 +1,6 @@
 // contains functions to trans Messages
 use "http"
+use "json"
 
 actor RequestSender
   let base_url: String
@@ -41,3 +42,9 @@ class MessageTransfer
   fun send_public(msg: GroupChatMessage) =>
     let json = CoolQParser.gen_msg_json(msg)
     _sender.send(json.string(), "send_msg")
+
+  fun accept_invite(flag': String, type': String) =>
+    let json = JsonObject()
+    json.data("flag") = flag'
+    json.data("approve") = true
+    _sender.send(json.string(), "set_group_add_request")

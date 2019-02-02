@@ -16,8 +16,11 @@ class ListenNotify is WebSocketListenNotify
 
 class ConnectionNotify is WebSocketConnectionNotify
   let _env: Env
+  let _counter: SilenceCounter
   new create(env': Env) =>
     _env = env'
+    _counter = SilenceCounter.create()
+    
   // A websocket connection enters the OPEN state
   fun ref opened(conn: WebSocketConnection ref) =>
     _env.out.print("CoolQ-HTTP client connected\n")
@@ -29,7 +32,7 @@ class ConnectionNotify is WebSocketConnectionNotify
     try
       match CoolQParser.parse_post(consume output)?
         | let msg: Message =>
-        match Diliver.deal_msg(msg)
+        match Diliver.deal_msg(msg, _counter)
           | let msg': Message =>
           let transfer = MessageTransfer("http://127.0.0.1:5700/", _env)
           transfer.send(msg')
@@ -37,15 +40,11 @@ class ConnectionNotify is WebSocketConnectionNotify
         | None => _env.out.print("Empty with parsed message\n")
       end
     end
-    
 
-  // Binary data received
-  fun ref binary_received(conn: WebSocketConnection ref, data: Array[U8] val) =>
-    text_received(conn, String.from_array(data))
 
-  // A websocket connection enters the CLOSED state
+  // A websocket connection enters the CLOSED state  
   fun ref closed(conn: WebSocketConnection ref) =>
-    @printf[I32]("Connection closed\n".cstring())
+    QQLogger.print("Connection closed\n")
 
 
 
